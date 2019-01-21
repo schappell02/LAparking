@@ -1,0 +1,73 @@
+import pandas as pd
+import numpy as np
+import datetime
+from pyproj import Proj, transform
+import os
+from geopy.geocoders import Nominatim
+
+
+def getData(file='Parking_Citations.csv',yearCut=2015,outF='sc_pc.csv'):
+    '''
+    Function outputs .csv file of LA parking citations with corresponding day of 
+    the week, issue time, and latitude and longitude.
+    As the full database provided by the city of Los Angeles is rather large,
+    this is a way to retain only the necessary information.
+
+    Inputs:
+    - file [assumed to be in same directory] = path to full csv file from 
+    the city of LA's website
+    - yearCut = input earliest year to be considered (needs to be
+    2010 or later), set as 2015 unless otherwise stated.
+    - outF = path of output csv file, set to 'sc_pc.csv' unless otherwise stated
+
+    Function takes full database provided by the city of LA (updated regularly on
+    their website), and writes the issue day of week, time, day of week, latitude, 
+    and longitude for all parking citations with properly entered latitudes and
+    longitudes (about 1/7 as of Jan. 13 2019 have improperly entered coordinates).
+    Will only consider citations within a certain year and later, if a cutoff year
+    is given.
+
+    Lat. and long. originally given in state plane feet coordinates, function
+    outputs them in degrees.
+    '''
+
+    # read larger database
+    pc = pd.read_csv(file)
+    # only consider parameters of interest
+    use_param = ['Issue Date','Issue time','Latitude','Longitude']
+    # only consider those with properly inputted lat ang long
+    use_pc = pc[(pc.Latitude > 99999.0) & (pc.Latitude < 1e7)][use_param]
+
+    # issue date column from string to datetime
+    use_pc['Issue Date'] = pd.to_datetime(use_pc['Issue Date'])
+    # get day of week
+    use_pc['DoW'] = use_pc['Issue Date'].dt.day_name()
+
+    # optional year cut
+    if yearCut != None:
+        lowt = pd.Timestamp(yearCut,1,1)
+        use_pc = use_pc[use_pc['Issue Date'] >= lowt]
+
+    use_pc['year'] = use_pc['Issue Date'].dt.year
+    # round time to nearest hour (24 hr clock)
+    # example: 12:30 is 1230 in database, will be rounded to 13
+    use_pc['Issue time'] = np.round(use_pc['Issue time']/100.0 + 0.2)
+
+    inProj = Proj(init='epsg:2229', preserve_units = True)
+    outProj = Proj(init='epsg:4326')
+
+    latfe = np.array(use_pc.Latitude)
+    lonfe = np.array(use_pc.Longitude)
+    # transform lat and long into degrees
+    use_pc.Longitude,use_pc.Latitude = transform(inProj,outProj,latfe,lonfe)
+
+    # print to csv file
+    use_pc[['Issue time','Latitude','Longitude','DoW']].to_csv(outF,index=False)
+
+
+
+
+def getLaLo(searchS):
+    geolocator = Nominatim(user_agent=os.environ['LApc_USER_AGENT'])
+    location = geolocator.geocode(searchS+', CA')
+    return location.latitude, location.longitude
