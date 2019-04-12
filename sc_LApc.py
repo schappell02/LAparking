@@ -166,7 +166,7 @@ class LAparkC():
 
 
 
-    def pcr_poi(self,PoI,uagent=None,DoW=None,ToD=None,fmil=0.25,dyrs=1):
+    def pcr_poi(self,PoI,uagent=None,DoW=None,ToD=None,fmil=0.25,dyrs=4):
         lat_to_mi = 68.92
         lon_to_mi = 57.41
         p_title = 'Ave. parking citation rate, at PoI given'
